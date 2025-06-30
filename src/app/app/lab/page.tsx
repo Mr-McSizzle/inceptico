@@ -32,6 +32,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { getAgentProfileById } from "@/lib/agentsData";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
@@ -416,10 +422,19 @@ const AbsurdityArenaTab = () => {
                         </div>
                         <Separator />
                         <div className="text-center space-y-3">
-                             <Button onClick={handleSubmitToReddit} disabled={isSubmittingToReddit} className="bg-orange-500 hover:bg-orange-600 text-white">
-                                {isSubmittingToReddit ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Trophy className="mr-2 h-4 w-4"/>}
-                                Submit to Reddit for Eternal Glory
-                            </Button>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button onClick={handleSubmitToReddit} disabled={isSubmittingToReddit} className="bg-orange-500 hover:bg-orange-600 text-white">
+                                      {isSubmittingToReddit ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Trophy className="mr-2 h-4 w-4"/>}
+                                      Submit to Reddit for Eternal Glory
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>This is a simulation. It will generate a fake post link without connecting to the real Reddit.</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                              {redditSubmissionResult && (
                                 <Alert variant={redditSubmissionResult.success ? "default" : "destructive"} className="text-left">
                                   <GitCommitVertical className="h-4 w-4" />
