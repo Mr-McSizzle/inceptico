@@ -8,6 +8,8 @@ export const metadata: Metadata = {
   description: 'Inceptico: An innovative AI-powered platform to simulate business operations, empowering startups to test, refine, and perfect their strategies. Create a digital twin of your business for predictive analytics, risk assessment, and personalized guidance.',
   icons: {
     icon: '/new-assets/inceptico-logo.png',
+    shortcut: '/new-assets/inceptico-logo.png',
+    apple: '/new-assets/inceptico-logo.png',
   },
 };
 
