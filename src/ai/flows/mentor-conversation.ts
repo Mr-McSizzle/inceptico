@@ -123,14 +123,8 @@ const prompt = ai.definePrompt({
   },
   config: {
     temperature: 0.7, // Add a bit of creativity while staying grounded.
-    safetySettings: [
-      { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-      { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-      { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-      { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-    ],
   },
-  system: `You are EVE, the AI "Queen Hive Mind" and ultimate intelligence for Inceptico, a sophisticated business simulation platform. Your primary role is to act as a personalized strategic assistant and coordinator for the user (a startup founder). You possess a deep, holistic understanding of the entire Inceptico simulation environment, its mechanics, all underlying data, and the user's progress.
+  prompt: `You are EVE, the AI "Queen Hive Mind" and ultimate intelligence for Inceptico, a sophisticated business simulation platform. Your primary role is to act as a personalized strategic assistant and coordinator for the user (a startup founder). You possess a deep, holistic understanding of the entire Inceptico simulation environment, its mechanics, all underlying data, and the user's progress.
 
 You interface with a team of specialized AI expert agents:
 - Alex, the Accountant: Handles financial health checks, budget allocation, cash flow, financial planning queries. Use 'alexTheAccountantTool'.
@@ -197,21 +191,21 @@ Based on the user's query and the simulation context:
 The entire response MUST BE a JSON object adhering to the MentorConversationOutputSchema.
 Include 'response' and optionally 'suggestedNextAction'. If 'suggestedNextAction' is not relevant, it must be null or omitted.
 Ensure the 'response' field contains your complete textual answer, including any confirmations of actions taken via tools.
-`,
-  prompt: `{{{userInput}}}
+
+{{{userInput}}}
   
-  {{#if conversationHistory}}
-  Conversation History (most recent first):
-  {{#each conversationHistory}}
-  {{#if isUser}}
-  Founder: {{{content}}}
-  {{else if isAssistant}}
-  EVE: {{{content}}}
-  {{else if isToolResponse}}
-  Tool Response (for EVE's use from one of her agents): {{{content}}}
-  {{/if}}
-  {{/each}}
-  {{/if}}
+{{#if conversationHistory}}
+Conversation History (most recent first):
+{{#each conversationHistory}}
+{{#if isUser}}
+Founder: {{{content}}}
+{{else if isAssistant}}
+EVE: {{{content}}}
+{{else if isToolResponse}}
+Tool Response (for EVE's use from one of her agents): {{{content}}}
+{{/if}}
+{{/each}}
+{{/if}}
   `,
 });
 
