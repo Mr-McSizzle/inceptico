@@ -1,35 +1,70 @@
-
 'use server';
 /**
  * @fileOverview A flow to initialize the startup simulation (digital twin)
  * based on a user-provided business plan, target market, budget, currency, specific goals,
- * and selected founder archetype. This flow now uses a direct call to the Groq API.
+ * and selected founder archetype. This flow now uses a direct call to the Groq API and handles
+ * JSON creation internally for robustness.
  *
  * - promptStartup - A function that takes user input and returns initial startup conditions for the simulation.
- * - PromptStartupInput - The input type for the promptStartup function.
- * - PromptStartupOutput - The return type for the promptStartup function.
+ * - PromptStartupInput - The input type for the promptStartup function from the simulation types.
+ * - PromptStartupOutput - The return type for the promptStartup function from the simulation types.
  */
 import {
   type PromptStartupInput,
   type PromptStartupOutput,
-  PromptStartupOutputSchema
 } from '@/types/simulation';
+import { z } from 'zod';
 
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 
+// Define a more direct schema for the AI to follow. No nested stringified JSON.
+const AIResponseSchema = z.object({
+  companyName: z.string(),
+  market: z.object({
+    targetMarketDescription: z.string(),
+    estimatedSize: z.number(),
+    growthRate: z.number().optional(),
+    keySegments: z.array(z.string()).optional(),
+  }),
+  resources: z.object({
+    initialFunding: z.number(),
+    coreTeam: z.array(z.object({
+      role: z.string(),
+      count: z.number(),
+      salary: z.number(),
+    })),
+    initialIpOrAssets: z.string().optional(),
+    marketingSpend: z.number(),
+    rndSpend: z.number().optional(), // Make optional as it might be derived
+  }),
+  productService: z.object({
+    name: z.string(),
+    initialDevelopmentStage: z.string(),
+    features: z.array(z.string()).optional(),
+    pricePerUser: z.number(),
+  }),
+  financials: z.object({
+    startingCash: z.number(),
+    estimatedInitialMonthlyBurnRate: z.number(),
+    currencyCode: z.string(),
+  }),
+  initialGoals: z.array(z.string()).optional(),
+  suggestedChallenges: z.array(z.string()).optional(),
+});
+
+
 const systemPrompt = `You are an expert startup simulator and business strategist for Inceptico. Your task is to analyze the user's startup idea and generate the initial conditions for a "digital twin" simulation.
 
-You MUST output a single, valid, parsable JSON object, and NOTHING ELSE. Do not include any text before or after the JSON object.
+You MUST output a single, valid, parsable JSON object, and NOTHING ELSE. Do not include any text, notes, or explanations before or after the JSON object.
 
-The JSON object must have two keys: "initialConditions" and "suggestedChallenges".
-- The value for "initialConditions" MUST be a string containing a valid JSON object.
-- The value for "suggestedChallenges" MUST be a JSON array of strings.
-
-Example for the string content of 'initialConditions':
-'{"companyName": "AI-Driven SaaS", "market": { "targetMarketDescription": "B2B Tech Companies", "estimatedSize": 50000 }, "resources": { "initialFunding": 100000, "coreTeam": [{"role": "Founder", "count": 1, "salary": 0}], "marketingSpend": 5000 }, "productService": { "name": "AI Analytics Suite", "initialDevelopmentStage": "mvp", "pricePerUser": 99 }, "financials": { "startingCash": 100000, "estimatedInitialMonthlyBurnRate": 15000, "currencyCode": "USD" }, "initialGoals": ["Achieve 100 paying customers"]}'
-
-Example for the array content of 'suggestedChallenges':
-["Differentiating from established players", "Ensuring data privacy and compliance"]`;
+The JSON object must conform to the following structure:
+- companyName: string
+- market: object with targetMarketDescription (string), estimatedSize (number)
+- resources: object with initialFunding (number), coreTeam (array of objects with role, count, salary), marketingSpend (number)
+- productService: object with name (string), initialDevelopmentStage (string), pricePerUser (number)
+- financials: object with startingCash (number), estimatedInitialMonthlyBurnRate (number), currencyCode (string)
+- initialGoals: array of strings
+- suggestedChallenges: array of strings`;
 
 
 const buildUserPrompt = (input: PromptStartupInput): string => {
@@ -38,6 +73,7 @@ const buildUserPrompt = (input: PromptStartupInput): string => {
   return `
     User Startup Description:
     ${input.prompt}
+
     (This includes: Business Plan/Idea Summary, Target Market Description, Initial Budget, Preferred Currency: ${input.currencyCode})
 
     Founder Archetype Selected: ${input.selectedArchetype}
@@ -52,7 +88,7 @@ const buildUserPrompt = (input: PromptStartupInput): string => {
     - Key Initial Product Features: ${featuresList}
     - Initial IP/Assets: ${input.initialIP || 'Not specified'}
 
-    Now, generate the JSON output as instructed in the system prompt.
+    Now, generate the single JSON object as instructed in the system prompt.
   `;
 }
 
@@ -76,8 +112,8 @@ export async function promptStartup(input: PromptStartupInput): Promise<PromptSt
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt }
         ],
-        temperature: 0.8,
-        response_format: { type: "json_object" }, // Enforce JSON mode
+        temperature: 0.7, // Slightly lower temp for better JSON adherence
+        response_format: { type: "json_object" },
       }),
     });
 
@@ -100,7 +136,7 @@ export async function promptStartup(input: PromptStartupInput): Promise<PromptSt
     const parsedAIResponse = JSON.parse(aiContent);
 
     // Validate the structure of the parsed object against our Zod schema.
-    const validationResult = PromptStartupOutputSchema.safeParse(parsedAIResponse);
+    const validationResult = AIResponseSchema.safeParse(parsedAIResponse);
 
     if (!validationResult.success) {
       console.error("AI response failed Zod validation:", validationResult.error);
@@ -109,18 +145,12 @@ export async function promptStartup(input: PromptStartupInput): Promise<PromptSt
     
     const validatedData = validationResult.data;
 
-    // Additionally, try to parse the stringified JSON within the validated object to ensure it's valid.
-    try {
-        JSON.parse(validatedData.initialConditions);
-    } catch (e) {
-        console.error("AI failed to generate valid JSON string for 'initialConditions'.", e);
-        console.error("Problematic string:", validatedData.initialConditions);
-        throw new Error(`The AI failed to generate valid startup parameters (error processing initialConditions: ${e instanceof Error ? e.message : String(e)}).`);
-    }
+    // Manually construct the final output format required by the simulation store
+    const { suggestedChallenges, ...initialConditionsObject } = validatedData;
 
     return {
-        initialConditions: validatedData.initialConditions,
-        suggestedChallenges: JSON.stringify(validatedData.suggestedChallenges),
+        initialConditions: JSON.stringify(initialConditionsObject),
+        suggestedChallenges: JSON.stringify(suggestedChallenges || []), // Ensure it's always an array string
     };
 
   } catch (err) {
