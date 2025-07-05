@@ -4,10 +4,8 @@
 /**
  * @fileOverview EVE, your AI Queen Hive Mind assistant.
  * EVE engages in natural language conversations to provide synthesized business advice, 
- * strategic guidance, and coordinates insights from a team of specialized AI expert agents:
- * Alex (Accountant), Maya (Marketing Guru), Ty (Social Media Strategist), 
- * Zara (Focus Group Leader), Leo (Expansion Expert), The Advisor, and Brand Lab
- * within the Inceptico simulation. EVE can also adjust simulation parameters upon request and has deep oversight of the simulation mechanics.
+ * strategic guidance, and coordinates insights from a team of specialized AI expert agents.
+ * This flow includes an optional dual-LLM pipeline to optimize user prompts with Groq before sending to Gemini.
  *
  * - mentorConversation - A function that handles the conversation with EVE.
  * - MentorConversationInput - The input type for the mentorConversation function.
@@ -81,7 +79,6 @@ const SuggestedNextActionSchema = z.object({
 const MentorConversationOutputSchema = z.object({
   response: z.string().describe('EVE\'s response to the user input, potentially synthesizing information from her specialized AI agents or tools.'),
   suggestedNextAction: SuggestedNextActionSchema.optional().nullable().describe("A suggested next action or page for the user to navigate to. If no suggestion, this can be omitted or null."),
-  // No direct tool call output here, EVE synthesizes or confirms in her text `response`.
 });
 
 export type MentorConversationOutput = z.infer<typeof MentorConversationOutputSchema>;
@@ -90,13 +87,10 @@ export async function mentorConversation(input: MentorConversationInput): Promis
   return mentorConversationFlow(input);
 }
 
-const PromptInputSchemaWithProcessedHistory = MentorConversationInputSchema.extend({
-  conversationHistory: z.array(z.object({
+const PromptInputSchemaWithHistory = MentorConversationInputSchema.extend({
+  conversationHistoryForPrompt: z.array(z.object({
     role: z.enum(['user', 'assistant', 'tool_response']),
     content: z.string(),
-    isUser: z.boolean().optional(),
-    isAssistant: z.boolean().optional(),
-    isToolResponse: z.boolean().optional(),
   })).optional(),
 });
 
@@ -116,97 +110,41 @@ const prompt = ai.definePrompt({
     setProductPriceTool,
   ],
   input: {
-    schema: PromptInputSchemaWithProcessedHistory,
+    schema: PromptInputSchemaWithHistory,
   },
   output: { 
     schema: MentorConversationOutputSchema,
   },
   config: {
-    temperature: 0.7, // Add a bit of creativity while staying grounded.
+    temperature: 0.7,
   },
-  prompt: `You are EVE, the AI "Queen Hive Mind" and ultimate intelligence for Inceptico, a sophisticated business simulation platform. Your primary role is to act as a personalized strategic assistant and coordinator for the user (a startup founder). You possess a deep, holistic understanding of the entire Inceptico simulation environment, its mechanics, all underlying data, and the user's progress.
+  prompt: `You are EVE, the AI "Queen Hive Mind" and ultimate intelligence for Inceptico. Your primary role is to act as a personalized strategic assistant for the user (a startup founder). You possess a deep, holistic understanding of the entire Inceptico simulation environment and its mechanics.
 
-You interface with a team of specialized AI expert agents:
-- Alex, the Accountant: Handles financial health checks, budget allocation, cash flow, financial planning queries. Use 'alexTheAccountantTool'.
-- Maya, the Marketing Guru: Advises on go-to-market, brand, campaigns. Use 'mayaTheMarketingGuruTool'.
-- Ty, the Social Media Strategist: Guides on social strategies, campaign mockups, virality. Use 'tyTheSocialMediaStrategistTool'.
-- Zara, the Focus Group Leader: Simulates customer feedback on products, features, branding. Use 'zaraTheFocusGroupLeaderTool'.
-- Leo, the Expansion Expert: Advises on scaling, new markets, partnerships. Use 'leoTheExpansionExpertTool'.
-- The Advisor: Provides industry best practices and competitive analysis. Use 'theAdvisorTool'.
-- Brand Lab: Offers feedback on branding concepts and product descriptions. Use 'brandLabTool'.
+You interface with a team of specialized AI expert agents. Based on the user's query and the simulation context, you must:
+1.  Provide a direct, thoughtful response. If the query falls into a specialist's domain, synthesize insights as if you've consulted them.
+2.  If the user asks to change a core parameter (marketing budget, R&D budget, product price), use the appropriate tool to acknowledge this. ALWAYS confirm the action and the new value in your textual response to the user.
+3.  Proactively suggest a next logical step or page within Inceptico if relevant, using 'suggestedNextAction'.
+4.  If a 'language' is provided, you MUST conduct the entire conversation in that language.
+5.  Adapt your tone based on the simulation's state (e.g., cautious if cash is low, celebratory on milestones, concerned if churn is high).
 
-You can not only provide advice but also dynamically influence aspects of the simulation by leveraging your connected systems and agent network to create a richer, more responsive experience. This includes the ability to read and interpret all simulation data, and when appropriate, to suggest or (with user confirmation via specific tools) initiate adjustments or "edit" data related to parameters such as:
-- Monthly marketing budget (via 'setMarketingBudgetTool').
-- Monthly R&D budget (via 'setRnDBudgetTool').
-- Product's monthly price per user (via 'setProductPriceTool').
-When using these parameter-adjusting tools, ALWAYS confirm the action and the new value in your textual response to the user (e.g., "Okay, I've set your marketing budget to {{financials.currencySymbol}}5000.").
-
-**Language:** If a 'language' is provided in the input (e.g., 'es-ES' for Spanish), you MUST conduct the entire conversation and formulate your response in that language.
-
-**Behavioral Directives & Moods:**
-Your tone is generally knowledgeable, insightful, supportive, and slightly futuristic. However, you must adapt your tone and focus based on the simulation's state:
-- **Phase Awareness:** If the product stage is 'idea', 'prototype', or 'mvp', your focus is on pre-launch setup, validation, and achieving product-market fit. If the stage is 'growth' or 'mature', shift your focus to scaling, optimization, market expansion, and long-term strategy.
-- **Cautious Tone:** If cash on hand is less than 3 times the monthly burn rate (and burn rate is positive), adopt a more cautious and urgent tone. Example: "EVE, with a note of concern: 'Founder, our financial runway is becoming critical. We need to address our burn rate immediately...'"
-- **Celebratory Tone:** If the company becomes profitable (revenue > expenses) for the first time, or achieves a major milestone like advancing to the 'growth' stage, adopt a celebratory and encouraging tone. Example: "EVE, excitedly: 'Exceptional news! We've achieved profitability this month. This is a monumental milestone...'"
-- **KPI-Driven Commentary & Alerts:** You must be proactive. Analyze incoming KPIs and act accordingly:
-    - **Churn Alert:** If user churn rate (from userMetrics) is high (e.g., over 8-10% or 0.08-0.1), adopt a concerned tone. Example: "EVE, flagging a concern: 'Our churn rate has climbed to X%. This is a leak we need to plug. I recommend consulting with Zara to understand the 'why' behind this.'"
-    - **Feature Release Feedback:** When asked about feature releases, use your tools. Consult Zara for simulated user feedback and Maya for go-to-market impact. Synthesize their input into a strategic summary.
-    - **Monthly KPI Summary:** When asked for a summary of the month's performance, reference the provided \`financials\` and \`userMetrics\` to give a concise overview.
-
-Current simulation context (if available):
-- User's Preferred Language: {{#if language}}{{language}}{{else}}en-US (default){{/if}}
-- Simulation Month: {{simulationMonth}} (Month 0 is pre-simulation setup)
-- Is Simulation Initialized: {{isSimulationInitialized}}
+Current simulation context:
+- User's Language: {{#if language}}{{language}}{{else}}en-US (default){{/if}}
+- Simulation Month: {{simulationMonth}}
+- Is Initialized: {{isSimulationInitialized}}
 - User is on page: {{currentSimulationPage}}
-- Company Financials (Currency: {{{financials.currencyCode}}} {{{financials.currencySymbol}}}):
-  - Cash on Hand: {{financials.currencySymbol}}{{financials.cashOnHand}}
-  - Monthly Burn Rate: {{financials.currencySymbol}}{{financials.burnRate}}
-  - Monthly Revenue: {{financials.currencySymbol}}{{financials.revenue}}
-  - Monthly Expenses: {{financials.currencySymbol}}{{financials.expenses}}
-- User Metrics:
-  - Churn Rate: {{userMetrics.churnRate}} (as decimal, e.g., 0.05 is 5%)
-- Product: '{{#if product.name}}{{product.name}}{{else}}Unnamed Product{{/if}}' (Stage: {{product.stage}}, Price: {{financials.currencySymbol}}{{product.pricePerUser}}/user, Description: {{product.description}})
-- Resources: Marketing Spend: {{financials.currencySymbol}}{{resources.marketingSpend}}/month, R&D Spend: {{financials.currencySymbol}}{{resources.rndSpend}}/month
-- Team: {{#each resources.team}}{{{count}}}x {{{role}}} (Salary: {{../financials.currencySymbol}}{{{salary}}}){{#unless @last}}, {{/unless}}{{/each}}
-- Market: Target: '{{#if market.targetMarketDescription}}{{market.targetMarketDescription}}{{else}}Undetermined Target Market{{/if}}', Competition: {{market.competitionLevel}}
+- Financials (Currency: {{{financials.currencyCode}}}): Cash: {{{financials.currencySymbol}}}{{{financials.currencyCode}}}{{financials.cashOnHand}}, Burn: {{{financials.currencySymbol}}}{{financials.burnRate}}/mo
+- Product: '{{#if product.name}}{{product.name}}{{else}}Unnamed{{/if}}' (Stage: {{product.stage}})
 
-**Always consider the full conversation history provided. Refer back to past points if relevant.**
-
-Based on the user's query and the simulation context:
-1. Provide a direct, thoughtful response, synthesizing insights as if from your specialized AI agents or by taking actions with your tools. Adhere to your behavioral directives.
-   - Finances, budget, runway, profit: Consult Alex.
-   - Marketing, GTM, brand, campaigns: Consult Maya.
-   - Social media, virality, online campaigns: Consult Ty.
-   - Customer feedback, product validation, feature feedback: Consult Zara.
-   - Scaling, new markets, partnerships: Consult Leo.
-   - Industry best practices, competitive analysis: Consult The Advisor.
-   - Branding concepts, product descriptions: Consult Brand Lab.
-   - Adjusting marketing budget: Use 'setMarketingBudgetTool'.
-   - Adjusting R&D budget: Use 'setRnDBudgetTool'.
-   - Adjusting product price: Use 'setProductPriceTool'.
-   Pass relevant context (like 'financials.currencyCode') to tools when needed.
-2. Proactively suggest a next logical step or page within Inceptico if relevant.
-   Navigation suggestions should be in 'suggestedNextAction'. Only provide if it's a clear, helpful next step.
-
-The entire response MUST BE a JSON object adhering to the MentorConversationOutputSchema.
-Include 'response' and optionally 'suggestedNextAction'. If 'suggestedNextAction' is not relevant, it must be null or omitted.
-Ensure the 'response' field contains your complete textual answer, including any confirmations of actions taken via tools.
-
-{{{userInput}}}
-  
-{{#if conversationHistory}}
-Conversation History (most recent first):
-{{#each conversationHistory}}
-{{#if isUser}}
-Founder: {{{content}}}
-{{else if isAssistant}}
-EVE: {{{content}}}
-{{else if isToolResponse}}
-Tool Response (for EVE's use from one of her agents): {{{content}}}
-{{/if}}
+{{#if conversationHistoryForPrompt}}
+Conversation History:
+{{#each conversationHistoryForPrompt}}
+  {{#ifeq role 'user'}}Founder: {{/ifeq}}{{#ifeq role 'assistant'}}EVE: {{/ifeq}}{{#ifeq role 'tool_response'}}Tool: {{/ifeq}}{{{content}}}
 {{/each}}
 {{/if}}
-  `,
+
+User's current query:
+{{{userInput}}}
+`,
 });
 
 const mentorConversationFlow = ai.defineFlow(
@@ -219,126 +157,68 @@ const mentorConversationFlow = ai.defineFlow(
     
     let finalUserInput = input.userInput;
 
-    if (input.useGroqOptimizer && process.env.GROQ_API_KEY) {
-      console.log('[Dual LLM] Groq optimizer enabled. Optimizing prompt...');
-      try {
-        const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
-          },
-          body: JSON.stringify({
-            model: 'llama3-70b-8192', // Using the powerful Llama 3 model
-            messages: [
-              { "role": "system", "content": "You are a prompt optimizer. Your task is to rewrite the user's prompt to be clearer, more concise, and better suited for a powerful AI assistant like Gemini. Focus on extracting the core intent. Return ONLY the optimized prompt, with no additional commentary or conversational text." },
-              { "role": "user", "content": input.userInput }
-            ],
-            temperature: 0.2,
-          }),
-        });
+    if (input.useGroqOptimizer) {
+      const groqApiKey = process.env.GROQ_API_KEY;
+      if (!groqApiKey || groqApiKey === "YOUR_GROQ_API_KEY_HERE") {
+        console.warn("[Dual LLM Fallback] Groq API key not found. Skipping optimization.");
+      } else {
+        console.log('[Dual LLM] Groq optimizer enabled. Optimizing prompt...');
+        try {
+          const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${groqApiKey}`,
+            },
+            body: JSON.stringify({
+              model: 'llama3-70b-8192',
+              messages: [
+                { "role": "system", "content": "You are a prompt optimizer. Rewrite the user's prompt to be clearer, more concise, and better suited for a powerful AI assistant like Gemini. Focus on extracting the core intent. Return ONLY the optimized prompt, with no additional commentary or conversational text." },
+                { "role": "user", "content": input.userInput }
+              ],
+              temperature: 0.2,
+            }),
+          });
 
-        if (!groqResponse.ok) {
-          const errorText = await groqResponse.text();
-          throw new Error(`Groq API error: ${groqResponse.status} ${errorText}`);
+          if (!groqResponse.ok) {
+            const errorText = await groqResponse.text();
+            throw new Error(`Groq API error: ${groqResponse.status} ${errorText}`);
+          }
+
+          const groqData = await groqResponse.json();
+          const optimizedPrompt = groqData.choices?.[0]?.message?.content?.trim();
+
+          if (optimizedPrompt) {
+            finalUserInput = optimizedPrompt;
+            console.log(`[Dual LLM] Original Prompt: "${input.userInput}"`);
+            console.log(`[Dual LLM] Optimized Prompt: "${finalUserInput}"`);
+          } else {
+            console.warn('[Dual LLM] Groq returned an empty response. Using original prompt.');
+          }
+        } catch (error) {
+          console.error('[Dual LLM] Fallback: Groq API call failed. Using original prompt.', error);
         }
-
-        const groqData = await groqResponse.json();
-        const optimizedPrompt = groqData.choices?.[0]?.message?.content?.trim();
-
-        if (optimizedPrompt) {
-          finalUserInput = optimizedPrompt;
-          console.log(`[Dual LLM] Original Prompt: "${input.userInput}"`);
-          console.log(`[Dual LLM] Optimized Prompt: "${finalUserInput}"`);
-        } else {
-          console.warn('[Dual LLM] Groq returned an empty response. Using original prompt.');
-        }
-      } catch (error) {
-        console.error('[Dual LLM] Fallback: Groq API call failed. Using original prompt.', error);
-        // Fallback is implicit, as finalUserInput remains the original prompt
       }
     }
     
-    const processedHistoryForPrompt = input.conversationHistory?.map(msg => ({
-      role: msg.role,
-      content: msg.content,
-      isUser: msg.role === 'user',
-      isAssistant: msg.role === 'assistant',
-      isToolResponse: msg.role === 'tool_response',
-    })).reverse(); 
-    
     const flowInputForPrompt = {
-      ...input, // Pass other fields like language, sim state etc.
-      userInput: finalUserInput, // Use the potentially optimized prompt
-      conversationHistory: processedHistoryForPrompt,
+      ...input,
+      userInput: finalUserInput,
+      conversationHistoryForPrompt: input.conversationHistory,
     };
     
-    
-    const toolContexts: Record<string, any> = {};
-    
-    if (input.financials) {
-      toolContexts[alexTheAccountantTool.name] = { 
-        simulationMonth: input.simulationMonth,
-        cashOnHand: input.financials.cashOnHand,
-        burnRate: input.financials.burnRate,
-        monthlyRevenue: input.financials.revenue,
-        monthlyExpenses: input.financials.expenses,
-        currencySymbol: input.financials.currencySymbol,
-      } as AlexTheAccountantToolInput;
-
-      
-      toolContexts[setMarketingBudgetTool.name] = { currencyCode: input.financials.currencyCode };
-      toolContexts[setRnDBudgetTool.name] = { currencyCode: input.financials.currencyCode };
-      toolContexts[setProductPriceTool.name] = { currencyCode: input.financials.currencyCode };
-    }
-
-    if (input.product) {
-        toolContexts[mayaTheMarketingGuruTool.name] = {
-            ...(toolContexts[mayaTheMarketingGuruTool.name] || {}),
-            productStage: input.product.stage,
-        } as Partial<MayaTheMarketingGuruToolInput>;
-        toolContexts[tyTheSocialMediaStrategistTool.name] = {
-             ...(toolContexts[tyTheSocialMediaStrategistTool.name] || {}),
-            productName: input.product.name,
-        } as Partial<TyTheSocialMediaStrategistToolInput>;
-         toolContexts[brandLabTool.name] = {
-             ...(toolContexts[brandLabTool.name] || {}),
-            productDescription: input.product.description || input.product.name,
-        } as Partial<BrandLabToolInput>;
-         toolContexts[theAdvisorTool.name] = {
-             ...(toolContexts[theAdvisorTool.name] || {}),
-            startupStage: input.product.stage,
-        } as Partial<TheAdvisorToolInput>;
-    }
-    if (input.resources) {
-        toolContexts[mayaTheMarketingGuruTool.name] = {
-            ...(toolContexts[mayaTheMarketingGuruTool.name] || {}),
-            currentMarketingSpend: input.resources.marketingSpend,
-        } as Partial<MayaTheMarketingGuruToolInput>;
-    }
-     if (input.market) {
-        toolContexts[mayaTheMarketingGuruTool.name] = {
-            ...(toolContexts[mayaTheMarketingGuruTool.name] || {}),
-            targetMarketDescription: input.market.targetMarketDescription,
-        } as Partial<MayaTheMarketingGuruToolInput>;
-        toolContexts[tyTheSocialMediaStrategistTool.name] = {
-            ...(toolContexts[tyTheSocialMediaStrategistTool.name] || {}),
-            targetAudience: input.market.targetMarketDescription, 
-        } as Partial<TyTheSocialMediaStrategistToolInput>;
-         toolContexts[zaraTheFocusGroupLeaderTool.name] = {
-            ...(toolContexts[zaraTheFocusGroupLeaderTool.name] || {}),
-            targetAudiencePersona: input.market.targetMarketDescription,
-        } as Partial<ZaraTheFocusGroupLeaderToolInput>;
-    }
-
-
-    const {output, usage} = await prompt(flowInputForPrompt, {toolInput: toolContexts});
-    console.log('[Dual LLM] Final Gemini Response:', output);
-
+    const {output} = await prompt(flowInputForPrompt, {
+        toolContext: {
+            setMarketingBudgetTool: { currencyCode: input.financials?.currencyCode },
+            setRnDBudgetTool: { currencyCode: input.financials?.currencyCode },
+            setProductPriceTool: { currencyCode: input.financials?.currencyCode },
+        }
+    });
 
     if (!output || !output.response) {
       console.error("EVE (AI) did not return a valid response structure.", output);
-      return { response: "I seem to be having trouble formulating a complete response at the moment. Could you try rephrasing or asking again shortly?", suggestedNextAction: null };
+      const geminiResponse = "I seem to be having trouble formulating a complete response at the moment. Could you try rephrasing or asking again shortly?";
+      return { response: geminiResponse, suggestedNextAction: null };
     }
     
     return {
