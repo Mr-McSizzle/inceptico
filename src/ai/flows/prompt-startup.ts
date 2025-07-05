@@ -3,18 +3,18 @@
 /**
  * @fileOverview A flow to initialize the startup simulation (digital twin)
  * based on a user-provided business plan, target market, budget, currency, specific goals,
- * and selected founder archetype. This flow now uses the Genkit AI framework with Gemini for stability.
+ * and selected founder archetype. This flow now uses a direct call to the Groq API.
  *
  * - promptStartup - A function that takes user input and returns initial startup conditions for the simulation.
  * - PromptStartupInput - The input type for the promptStartup function.
  * - PromptStartupOutput - The return type for the promptStartup function.
  */
-
-import { ai } from '@/ai/genkit';
-import { z } from 'genkit'; // Using Genkit's Zod export
+import { z } from 'zod';
 import { FounderArchetypeEnum, type FounderArchetype } from '@/types/simulation';
 
-// These schemas should ideally live in the types/simulation.ts file, but defining them here for clarity.
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
+
+// Schemas
 const PromptStartupInputSchema = z.object({
   prompt: z
     .string()
@@ -30,86 +30,128 @@ const PromptStartupInputSchema = z.object({
 });
 export type PromptStartupInput = z.infer<typeof PromptStartupInputSchema>;
 
+// The AI will return a single JSON object with these two keys.
+// The values of these keys will be STRINGIFIED JSON.
+const AIResponseSchema = z.object({
+    initialConditions: z.string().describe('A stringified JSON object containing all the initial conditions for the startup simulation. This includes companyName, market, resources, product details, financials, and initial goals. All monetary values in this stringified object MUST be numbers, not strings.'),
+    suggestedChallenges: z.string().describe('A stringified JSON array of 3-5 strings, each describing a potential early-stage challenge for the startup.'),
+});
 
-const PromptStartupOutputSchema = z.object({
-  initialConditions: z.string().describe('A JSON string containing all the initial conditions for the startup simulation. This includes company name, market, resources, product details, financials, and initial goals.'),
-  suggestedChallenges: z.string().describe('A JSON string containing an array of 3-5 strings, each describing a potential early-stage challenge for the startup.'),
+// The final output of our flow will have the stringified JSON parsed.
+export const PromptStartupOutputSchema = z.object({
+  initialConditions: z.string(),
+  suggestedChallenges: z.string(),
 });
 export type PromptStartupOutput = z.infer<typeof PromptStartupOutputSchema>;
 
+const systemPrompt = `You are an expert startup simulator and business strategist for Inceptico. Your task is to analyze the user's startup idea and generate the initial conditions for a "digital twin" simulation.
 
-export async function promptStartup(input: PromptStartupInput): Promise<PromptStartupOutput> {
-  return promptStartupFlow(input);
-}
+You MUST output a single, valid, parsable JSON object, and NOTHING ELSE. Do not include any text before or after the JSON object.
 
+The JSON object must have two keys: "initialConditions" and "suggestedChallenges".
+The value for "initialConditions" MUST be a string containing a valid JSON object.
+The value for "suggestedChallenges" MUST be a string containing a valid JSON array of strings.
 
-const prompt = ai.definePrompt({
-    name: 'initializeStartupPrompt',
-    input: { schema: PromptStartupInputSchema },
-    output: { schema: PromptStartupOutputSchema },
-    config: {
-        temperature: 0.8,
-    },
-    prompt: `You are an expert startup simulator and business strategist for Inceptico. Your task is to analyze the user's startup idea and generate the initial conditions for a "digital twin" simulation.
+Example for the string content of 'initialConditions':
+'{"companyName": "AI-Driven SaaS", "market": { "targetMarketDescription": "B2B Tech Companies", "estimatedSize": 50000 }, "resources": { "initialFunding": 100000, "coreTeam": [{"role": "Founder", "count": 1, "salary": 0}], "marketingSpend": 5000 }, "productService": { "name": "AI Analytics Suite", "initialDevelopmentStage": "mvp", "pricePerUser": 99 }, "financials": { "startingCash": 100000, "estimatedInitialMonthlyBurnRate": 15000, "currencyCode": "USD" }, "initialGoals": ["Achieve 100 paying customers"]}'
 
-User Startup Description:
-{{{prompt}}}
-(This includes: Business Plan/Idea Summary, Target Market Description, Initial Budget, Preferred Currency: {{{currencyCode}}})
+Example for the string content of 'suggestedChallenges':
+'["Differentiating from established players", "Ensuring data privacy and compliance"]'
 
-Founder Archetype Selected: {{{selectedArchetype}}}
+Apply the following founder archetype influences subtly:
 - If 'innovator': Slightly lean towards higher initial R&D focus and unique product features.
 - If 'scaler': Prioritize operational efficiency, a clear market segment, and a realistic budget.
 - If 'community_builder': Lean towards lower initial marketing spend but suggest goals related to user engagement.
-- If 'blockchain_visionary': Create a concept native to Web3, possibly involving tokens or DAOs (e.g., "EthosProtocol DAO").
-These influences should be subtle.
+- If 'blockchain_visionary': Create a concept native to Web3, possibly involving tokens or DAOs (e.g., "EthosProtocol DAO").`;
 
-Optional Specific Goals from User:
-- Target Monthly User Growth Rate: {{#if targetGrowthRate}}{{{targetGrowthRate}}}%{{else}}Not specified{{/if}}
-- Desired Profit Margin: {{#if desiredProfitMargin}}{{{desiredProfitMargin}}}%{{else}}Not specified{{/if}}
-- Target CAC: {{#if targetCAC}}{{{currencyCode}}} {{{targetCAC}}}{{else}}Not specified{{/if}}
 
-Optional Detailed Initial Parameters from User:
-- Initial Team Setup Notes: {{#if initialTeamSetupNotes}}{{{initialTeamSetupNotes}}}{{else}}Not specified{{/if}}
-- Key Initial Product Features: {{#if initialProductFeatures}}{{#each initialProductFeatures}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}}{{else}}Not specified{{/if}}
-- Initial IP/Assets: {{#if initialIP}}{{{initialIP}}}{{else}}Not specified{{/if}}
+const buildUserPrompt = (input: PromptStartupInput): string => {
+  return `
+    User Startup Description:
+    ${input.prompt}
+    (This includes: Business Plan/Idea Summary, Target Market Description, Initial Budget, Preferred Currency: ${input.currencyCode})
 
-Based on all the information provided, generate two outputs:
-1.  **initialConditions**: A single, valid, parsable JSON string. This string must contain a JSON object with the startup parameters (e.g., companyName, market, resources, productService, financials, initialGoals). All monetary values in this object MUST be numbers, not strings.
-2.  **suggestedChallenges**: A single, valid, parsable JSON string. This string must contain a JSON array of 3-5 strings, each describing a potential early-stage challenge.
+    Founder Archetype Selected: ${input.selectedArchetype}
 
-Example for 'initialConditions' string content:
-'{"companyName": "AI-Driven SaaS", "market": { "targetMarketDescription": "B2B Tech Companies", "estimatedSize": 50000 }, "resources": { "initialFunding": 100000, "coreTeam": [{"role": "Founder", "count": 1, "salary": 0}], "marketingSpend": 5000 }, "productService": { "name": "AI Analytics Suite", "initialDevelopmentStage": "mvp", "pricePerUser": 99 }, "financials": { "startingCash": 100000, "estimatedInitialMonthlyBurnRate": 15000, "currencyCode": "USD" }, "initialGoals": ["Achieve 100 paying customers"]}'
+    Optional Specific Goals from User:
+    - Target Monthly User Growth Rate: ${input.targetGrowthRate ? `${input.targetGrowthRate}%` : 'Not specified'}
+    - Desired Profit Margin: ${input.desiredProfitMargin ? `${input.desiredProfitMargin}%` : 'Not specified'}
+    - Target CAC: ${input.targetCAC ? `${input.currencyCode} ${input.targetCAC}` : 'Not specified'}
 
-Example for 'suggestedChallenges' string content:
-'["Differentiating from established players", "Ensuring data privacy and compliance"]'
+    Optional Detailed Initial Parameters from User:
+    - Initial Team Setup Notes: ${input.initialTeamSetupNotes || 'Not specified'}
+    - Key Initial Product Features: ${input.initialProductFeatures?.join(', ') || 'Not specified'}
+    - Initial IP/Assets: ${input.initialIP || 'Not specified'}
 
-The output MUST be a single JSON object matching the PromptStartupOutputSchema.
-{{output}}`,
-});
+    Now, generate the JSON output as instructed in the system prompt.
+  `;
+}
 
-const promptStartupFlow = ai.defineFlow(
-  {
-    name: 'promptStartupFlow',
-    inputSchema: PromptStartupInputSchema,
-    outputSchema: PromptStartupOutputSchema,
-  },
-  async (input: PromptStartupInput): Promise<PromptStartupOutput> => {
-    const {output} = await prompt(input);
-    if (!output || !output.initialConditions || !output.suggestedChallenges) {
-        console.error("AI promptStartupFlow did not return the expected structure.", output);
-        throw new Error("AI failed to generate valid startup parameters.");
+export async function promptStartup(input: PromptStartupInput): Promise<PromptStartupOutput> {
+  if (!GROQ_API_KEY) {
+    throw new Error("GROQ_API_KEY is not configured. Please set it in your .env file.");
+  }
+
+  const userPrompt = buildUserPrompt(input);
+
+  try {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${GROQ_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: 'llama3-70b-8192',
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt }
+        ],
+        temperature: 0.8,
+        response_format: { type: "json_object" }, // Enforce JSON mode
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Groq API error: ${response.status} ${errorText}`);
     }
 
-    try {
-        JSON.parse(output.initialConditions);
-        JSON.parse(output.suggestedChallenges);
-    } catch (e) {
-        console.error("AI failed to generate valid JSON strings for startup parameters.", e);
-        console.error("Problematic initialConditions:", output.initialConditions);
-        console.error("Problematic suggestedChallenges:", output.suggestedChallenges);
-        throw new Error(`The AI failed to generate valid startup parameters (error processing ${e instanceof Error && e.message.includes('initialConditions') ? 'initialConditions' : 'suggestedChallenges'}: ${e instanceof Error ? e.message : String(e)}).`);
+    const groqData = await response.json();
+    const aiContent = groqData.choices?.[0]?.message?.content;
+
+    if (!aiContent) {
+      throw new Error("Groq API returned an empty response content.");
     }
     
-    return output;
+    // First, parse the main AI response which should be a JSON object
+    const parsedAIResponse = AIResponseSchema.parse(JSON.parse(aiContent));
+
+    // Then, parse the stringified JSON within that object
+    // This provides a two-step validation.
+    try {
+        JSON.parse(parsedAIResponse.initialConditions);
+    } catch (e) {
+        console.error("AI failed to generate valid JSON string for 'initialConditions'.", e);
+        console.error("Problematic string:", parsedAIResponse.initialConditions);
+        throw new Error(`The AI failed to generate valid startup parameters for 'initialConditions'.`);
+    }
+
+     try {
+        JSON.parse(parsedAIResponse.suggestedChallenges);
+    } catch (e) {
+        console.error("AI failed to generate valid JSON string for 'suggestedChallenges'.", e);
+        console.error("Problematic string:", parsedAIResponse.suggestedChallenges);
+        throw new Error(`The AI failed to generate valid startup parameters for 'suggestedChallenges'.`);
+    }
+
+    return {
+        initialConditions: parsedAIResponse.initialConditions,
+        suggestedChallenges: parsedAIResponse.suggestedChallenges,
+    };
+
+  } catch (err) {
+    console.error("Failed to initialize simulation.", err);
+    throw new Error(`Failed to initialize simulation. Details: ${err instanceof Error ? err.message : String(err)}`);
   }
-);
+}
