@@ -3,7 +3,8 @@
 
 import { useState, useEffect, type ChangeEvent, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { promptStartup, type PromptStartupInput, type PromptStartupOutput } from "@/ai/flows/prompt-startup";
+import { promptStartup } from "@/ai/flows/prompt-startup";
+import type { PromptStartupInput, PromptStartupOutput } from "@/types/simulation";
 import { suggestNames, type SuggestNamesInput, type SuggestNamesOutput } from "@/ai/flows/suggest-names-flow";
 import { useSimulationStore } from "@/store/simulationStore";
 import { Button } from "@/components/ui/button";
@@ -575,5 +576,3 @@ export default function SetupSimulationPage() {
     </>
   );
 }
-
-    

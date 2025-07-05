@@ -709,3 +709,50 @@ export const AnalyzeSillyIdeaOutputSchema = z.object({
   agentBanter: z.array(AgentBanterSchema).describe("A list of 2-3 humorous reactions from different AI agents."),
 });
 export type AnalyzeSillyIdeaOutput = z.infer<typeof AnalyzeSillyIdeaOutputSchema>;
+
+
+// Reddit Tool Placeholder Schemas
+export const RedditToolInputSchema = z.object({
+  subreddit: z.string().describe("The name of the subreddit to post to (without 'r/')."),
+  title: z.string().describe("The title of the Reddit post."),
+  body: z.string().describe("The markdown-formatted body content of the Reddit post."),
+});
+export type RedditToolInput = z.infer<typeof RedditToolInputSchema>;
+
+export const RedditToolOutputSchema = z.object({
+  success: z.boolean().describe("Whether the post was successfully simulated."),
+  postUrl: z.string().optional().describe("A fake URL to the simulated Reddit post."),
+  message: z.string().describe("A message indicating the result of the action."),
+});
+export type RedditToolOutput = z.infer<typeof RedditToolOutputSchema>;
+
+
+// Submit to Reddit Flow Schemas
+export const SubmitToRedditInputSchema = AnalyzeSillyIdeaOutputSchema.extend({
+  sillyIdeaTitle: z.string().describe("The title of the silly idea, to be used in the Reddit post title."),
+  sillyIdeaDescription: z.string().describe("The full description of the silly idea for the post body."),
+});
+export type SubmitToRedditInput = z.infer<typeof SubmitToRedditInputSchema>;
+
+export const SubmitToRedditOutputSchema = RedditToolOutputSchema;
+export type SubmitToRedditOutput = z.infer<typeof SubmitToRedditOutputSchema>;
+
+// Prompt Startup Flow Schemas
+export const PromptStartupInputSchema = z.object({
+  prompt: z.string().describe('A detailed description of the desired startup, including its business plan/idea, target market, and initial budget. This will also include the preferred currency code and any specific goals.'),
+  currencyCode: z.string().optional().describe('The 3-letter currency code (e.g., USD, EUR, JPY) the user wants the simulation to be in. All monetary values in the output should be relative to this currency.'),
+  targetGrowthRate: z.string().optional().describe("User's target monthly user growth rate (e.g., '20' for 20%)."),
+  desiredProfitMargin: z.string().optional().describe("User's desired profit margin (e.g., '15' for 15%)."),
+  targetCAC: z.string().optional().describe("User's target Customer Acquisition Cost (e.g., '25' if currency is USD)."),
+  initialTeamSetupNotes: z.string().optional().describe('User notes on desired initial team structure or key roles (e.g., "Two technical co-founders, 1 marketing intern"). AI should interpret this for the coreTeam structure.'),
+  initialProductFeatures: z.array(z.string()).optional().describe('A list of key initial product features the user envisions (e.g., ["User Authentication", "Dashboard Analytics", "AI Content Suggestions"]).'),
+  initialIP: z.string().optional().describe('Any initial intellectual property, unique assets, or proprietary technology the startup possesses (e.g., "Patented algorithm for X", "Exclusive dataset Y").'),
+  selectedArchetype: FounderArchetypeEnum.optional().describe("The founder's chosen archetype (e.g., 'innovator', 'scaler', 'community_builder', 'blockchain_visionary'). This should subtly influence initial conditions."),
+});
+export type PromptStartupInput = z.infer<typeof PromptStartupInputSchema>;
+
+export const PromptStartupOutputSchema = z.object({
+  initialConditions: z.string().describe('A stringified JSON object containing all initial conditions for the simulation.'),
+  suggestedChallenges: z.string().describe('A stringified JSON array of potential early-stage challenges.'),
+});
+export type PromptStartupOutput = z.infer<typeof PromptStartupOutputSchema>;

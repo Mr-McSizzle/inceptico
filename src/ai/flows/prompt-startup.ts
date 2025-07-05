@@ -9,40 +9,14 @@
  * - PromptStartupInput - The input type for the promptStartup function.
  * - PromptStartupOutput - The return type for the promptStartup function.
  */
-import { z } from 'zod';
-import { FounderArchetypeEnum, type FounderArchetype } from '@/types/simulation';
+import {
+  FounderArchetypeEnum,
+  type PromptStartupInput,
+  type PromptStartupOutput,
+  PromptStartupOutputSchema
+} from '@/types/simulation';
 
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
-
-// Schemas
-const PromptStartupInputSchema = z.object({
-  prompt: z
-    .string()
-    .describe('A detailed description of the desired startup, including its business plan/idea, target market, and initial budget. This will also include the preferred currency code and any specific goals.'),
-  currencyCode: z.string().optional().describe('The 3-letter currency code (e.g., USD, EUR, JPY) the user wants the simulation to be in. All monetary values in the output should be relative to this currency.'),
-  targetGrowthRate: z.string().optional().describe('User\'s target monthly user growth rate (e.g., "20" for 20%).'),
-  desiredProfitMargin: z.string().optional().describe('User\'s desired profit margin (e.g., "15" for 15%).'),
-  targetCAC: z.string().optional().describe('User\'s target Customer Acquisition Cost (e.g., "25" if currency is USD).'),
-  initialTeamSetupNotes: z.string().optional().describe('User notes on desired initial team structure or key roles (e.g., "Two technical co-founders, 1 marketing intern"). AI should interpret this for the coreTeam structure.'),
-  initialProductFeatures: z.array(z.string()).optional().describe('A list of key initial product features the user envisions (e.g., ["User Authentication", "Dashboard Analytics", "AI Content Suggestions"]).'),
-  initialIP: z.string().optional().describe('Any initial intellectual property, unique assets, or proprietary technology the startup possesses (e.g., "Patented algorithm for X", "Exclusive dataset Y").'),
-  selectedArchetype: FounderArchetypeEnum.optional().describe("The founder's chosen archetype (e.g., 'innovator', 'scaler', 'community_builder', 'blockchain_visionary'). This should subtly influence initial conditions."),
-});
-export type PromptStartupInput = z.infer<typeof PromptStartupInputSchema>;
-
-// The AI will return a single JSON object with these two keys.
-// The values of these keys will be STRINGIFIED JSON.
-const AIResponseSchema = z.object({
-    initialConditions: z.string().describe('A stringified JSON object containing all the initial conditions for the startup simulation. This includes companyName, market, resources, product details, financials, and initial goals. All monetary values in this stringified object MUST be numbers, not strings.'),
-    suggestedChallenges: z.string().describe('A stringified JSON array of 3-5 strings, each describing a potential early-stage challenge for the startup.'),
-});
-
-// The final output of our flow will have the stringified JSON parsed.
-export const PromptStartupOutputSchema = z.object({
-  initialConditions: z.string(),
-  suggestedChallenges: z.string(),
-});
-export type PromptStartupOutput = z.infer<typeof PromptStartupOutputSchema>;
 
 const systemPrompt = `You are an expert startup simulator and business strategist for Inceptico. Your task is to analyze the user's startup idea and generate the initial conditions for a "digital twin" simulation.
 
@@ -66,6 +40,8 @@ Apply the following founder archetype influences subtly:
 
 
 const buildUserPrompt = (input: PromptStartupInput): string => {
+  const featuresList = (input.initialProductFeatures && input.initialProductFeatures.length > 0) ? input.initialProductFeatures.join(', ') : 'Not specified';
+  
   return `
     User Startup Description:
     ${input.prompt}
@@ -80,7 +56,7 @@ const buildUserPrompt = (input: PromptStartupInput): string => {
 
     Optional Detailed Initial Parameters from User:
     - Initial Team Setup Notes: ${input.initialTeamSetupNotes || 'Not specified'}
-    - Key Initial Product Features: ${input.initialProductFeatures?.join(', ') || 'Not specified'}
+    - Key Initial Product Features: ${featuresList}
     - Initial IP/Assets: ${input.initialIP || 'Not specified'}
 
     Now, generate the JSON output as instructed in the system prompt.
@@ -113,8 +89,11 @@ export async function promptStartup(input: PromptStartupInput): Promise<PromptSt
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Groq API error: ${response.status} ${errorText}`);
+      const errorBody = await response.json();
+      const errorMessage = errorBody?.error?.message || "An unknown error occurred";
+      const failedGeneration = errorBody?.error?.failed_generation;
+      console.error("Groq API Error Response:", errorBody);
+      throw new Error(`Groq API error: ${response.status} ${errorMessage} ${failedGeneration ? `(Failed Generation: ${failedGeneration})` : ''}`);
     }
 
     const groqData = await response.json();
@@ -125,29 +104,38 @@ export async function promptStartup(input: PromptStartupInput): Promise<PromptSt
     }
     
     // First, parse the main AI response which should be a JSON object
-    const parsedAIResponse = AIResponseSchema.parse(JSON.parse(aiContent));
+    const parsedAIResponse = JSON.parse(aiContent);
 
-    // Then, parse the stringified JSON within that object
-    // This provides a two-step validation.
+    // Validate the structure of the parsed object against our Zod schema.
+    const validationResult = PromptStartupOutputSchema.safeParse(parsedAIResponse);
+
+    if (!validationResult.success) {
+      console.error("AI response failed Zod validation:", validationResult.error);
+      throw new Error(`The AI failed to generate valid startup parameters. Validation errors: ${validationResult.error.message}`);
+    }
+    
+    const validatedData = validationResult.data;
+
+    // Additionally, try to parse the stringified JSON within the validated object to ensure it's valid.
     try {
-        JSON.parse(parsedAIResponse.initialConditions);
+        JSON.parse(validatedData.initialConditions);
     } catch (e) {
         console.error("AI failed to generate valid JSON string for 'initialConditions'.", e);
-        console.error("Problematic string:", parsedAIResponse.initialConditions);
-        throw new Error(`The AI failed to generate valid startup parameters for 'initialConditions'.`);
+        console.error("Problematic string:", validatedData.initialConditions);
+        throw new Error(`The AI failed to generate valid startup parameters (error processing initialConditions: ${e instanceof Error ? e.message : String(e)}).`);
     }
 
      try {
-        JSON.parse(parsedAIResponse.suggestedChallenges);
+        JSON.parse(validatedData.suggestedChallenges);
     } catch (e) {
         console.error("AI failed to generate valid JSON string for 'suggestedChallenges'.", e);
-        console.error("Problematic string:", parsedAIResponse.suggestedChallenges);
-        throw new Error(`The AI failed to generate valid startup parameters for 'suggestedChallenges'.`);
+        console.error("Problematic string:", validatedData.suggestedChallenges);
+        throw new Error(`The AI failed to generate valid startup parameters (error processing suggestedChallenges: ${e instanceof Error ? e.message : String(e)}).`);
     }
 
     return {
-        initialConditions: parsedAIResponse.initialConditions,
-        suggestedChallenges: parsedAIResponse.suggestedChallenges,
+        initialConditions: validatedData.initialConditions,
+        suggestedChallenges: validatedData.suggestedChallenges,
     };
 
   } catch (err) {
