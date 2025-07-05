@@ -9,13 +9,22 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChatMessage } from "./chat-message";
 import type { ChatMessage as ChatMessageType } from "@/types";
-import { SendHorizonal, Loader2, Brain, Mic, MicOff } from "lucide-react";
+import { SendHorizonal, Loader2, Brain, Mic, MicOff, Settings2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAiMentorStore } from "@/store/aiMentorStore";
 import { useSimulationStore } from "@/store/simulationStore";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+
 
 interface ChatInterfaceProps {
   focusedAgentId?: string;
@@ -36,6 +45,7 @@ export function ChatInterface({ focusedAgentId, focusedAgentName, isEmbedded = f
   const { messages: allMessages, addMessage, setGuidance, initializeGreeting } = useAiMentorStore();
   const [userInput, setUserInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [useOptimizer, setUseOptimizer] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -133,6 +143,7 @@ export function ChatInterface({ focusedAgentId, focusedAgentName, isEmbedded = f
 
       const mentorInput: MentorConversationInput = {
         userInput: currentInput.trim(),
+        useGroqOptimizer: useOptimizer,
         conversationHistory: conversationHistoryForAI,
         simulationMonth: isInitialized ? simulationMonth : undefined,
         financials: isInitialized ? {
@@ -240,6 +251,7 @@ export function ChatInterface({ focusedAgentId, focusedAgentName, isEmbedded = f
     : "Ask EVE, your AI Hive Mind... (e.g., 'Change product price to $19.99')";
 
   return (
+    <TooltipProvider>
     <div
       className={cn(
         "flex flex-col bg-card shadow-lg rounded-lg",
@@ -263,7 +275,7 @@ export function ChatInterface({ focusedAgentId, focusedAgentName, isEmbedded = f
                 <div className="max-w-[70%] rounded-lg p-3 shadow-md bg-card text-card-foreground">
                     <div className="flex items-center gap-2">
                         <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                        <span className="text-sm text-muted-foreground">EVE is processing...</span>
+                        <span className="text-sm text-muted-foreground">{useOptimizer ? "Optimizing & processing..." : "EVE is processing..."}</span>
                     </div>
                 </div>
             </div>
@@ -271,44 +283,62 @@ export function ChatInterface({ focusedAgentId, focusedAgentName, isEmbedded = f
           <div ref={messagesEndRef} />
         </div>
       </ScrollArea>
-      <form
-        onSubmit={handleSubmit}
-        className="border-t border-border p-4 flex items-center gap-2 bg-background rounded-b-lg"
-      >
-        <Input
-          type="text"
-          value={userInput}
-          onChange={(e) => setUserInput(e.target.value)}
-          placeholder={placeholderText}
-          className="flex-grow"
-          disabled={isLoading}
-          aria-label="User input for EVE AI assistant"
-        />
-        {isSpeechRecognitionSupported && (
-          <Button
-            type="button"
-            size="icon"
-            variant={isRecording ? "destructive" : "outline"}
-            onClick={handleMicClick}
-            disabled={isLoading}
-            aria-label={isRecording ? "Stop recording" : "Start recording"}
-          >
-            {isRecording ? (
-              <MicOff className="h-5 w-5 animate-pulse" />
-            ) : (
-              <Mic className="h-5 w-5" />
+      <div className="border-t border-border p-4 flex flex-col gap-2 bg-background rounded-b-lg">
+        <div className="flex items-center gap-2">
+            <Input
+              type="text"
+              value={userInput}
+              onChange={(e) => setUserInput(e.target.value)}
+              placeholder={placeholderText}
+              className="flex-grow"
+              disabled={isLoading}
+              aria-label="User input for EVE AI assistant"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  handleSubmit(e);
+                }
+              }}
+            />
+            {isSpeechRecognitionSupported && (
+              <Button
+                type="button"
+                size="icon"
+                variant={isRecording ? "destructive" : "outline"}
+                onClick={handleMicClick}
+                disabled={isLoading}
+                aria-label={isRecording ? "Stop recording" : "Start recording"}
+              >
+                {isRecording ? (
+                  <MicOff className="h-5 w-5 animate-pulse" />
+                ) : (
+                  <Mic className="h-5 w-5" />
+                )}
+              </Button>
             )}
-          </Button>
-        )}
-        <Button type="submit" disabled={isLoading || !userInput.trim()} className="bg-accent hover:bg-accent/90 text-accent-foreground">
-          {isLoading ? (
-            <Loader2 className="h-5 w-5 animate-spin" />
-          ) : (
-            <SendHorizonal className="h-5 w-5" />
-          )}
-          <span className="sr-only">Send message</span>
-        </Button>
-      </form>
+            <Button type="submit" onClick={handleSubmit} disabled={isLoading || !userInput.trim()} className="bg-accent hover:bg-accent/90 text-accent-foreground">
+              {isLoading ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <SendHorizonal className="h-5 w-5" />
+              )}
+              <span className="sr-only">Send message</span>
+            </Button>
+        </div>
+        <div className="flex items-center space-x-2">
+          <Checkbox id="groq-optimizer" checked={useOptimizer} onCheckedChange={(checked) => setUseOptimizer(checked as boolean)} disabled={isLoading} />
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <Label htmlFor="groq-optimizer" className="text-xs font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center gap-1 cursor-pointer">
+                        Use Prompt Optimizer (Groq) <Settings2 className="h-3 w-3 text-muted-foreground"/>
+                    </Label>
+                </TooltipTrigger>
+                <TooltipContent>
+                    <p>When enabled, your prompt is first sent to Groq's Llama 3<br /> to be clarified before being sent to Gemini.</p>
+                </TooltipContent>
+            </Tooltip>
+        </div>
+      </div>
     </div>
+    </TooltipProvider>
   );
 }

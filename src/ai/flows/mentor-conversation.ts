@@ -34,6 +34,7 @@ const MentorConversationInputSchema = z.object({
   userInput: z
     .string()
     .describe('The user input to EVE, the AI Queen Hive Mind assistant.'),
+  useGroqOptimizer: z.boolean().optional().describe('Whether to use Groq to optimize the prompt before sending to Gemini.'),
   language: z.string().optional().describe("The user's preferred language code (e.g., 'en-US', 'es-ES'). EVE must respond in this language if provided."),
   conversationHistory: z.array(z.object({
     role: z.enum(['user', 'assistant', 'tool_response']),
@@ -222,6 +223,48 @@ const mentorConversationFlow = ai.defineFlow(
   },
   async (input: MentorConversationInput) => {
     
+    let finalUserInput = input.userInput;
+
+    if (input.useGroqOptimizer && process.env.GROQ_API_KEY) {
+      console.log('[Dual LLM] Groq optimizer enabled. Optimizing prompt...');
+      try {
+        const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+          },
+          body: JSON.stringify({
+            model: 'llama3-70b-8192', // Using the powerful Llama 3 model
+            messages: [
+              { "role": "system", "content": "You are a prompt optimizer. Your task is to rewrite the user's prompt to be clearer, more concise, and better suited for a powerful AI assistant like Gemini. Focus on extracting the core intent. Return ONLY the optimized prompt, with no additional commentary or conversational text." },
+              { "role": "user", "content": input.userInput }
+            ],
+            temperature: 0.2,
+          }),
+        });
+
+        if (!groqResponse.ok) {
+          const errorText = await groqResponse.text();
+          throw new Error(`Groq API error: ${groqResponse.status} ${errorText}`);
+        }
+
+        const groqData = await groqResponse.json();
+        const optimizedPrompt = groqData.choices?.[0]?.message?.content?.trim();
+
+        if (optimizedPrompt) {
+          finalUserInput = optimizedPrompt;
+          console.log(`[Dual LLM] Original Prompt: "${input.userInput}"`);
+          console.log(`[Dual LLM] Optimized Prompt: "${finalUserInput}"`);
+        } else {
+          console.warn('[Dual LLM] Groq returned an empty response. Using original prompt.');
+        }
+      } catch (error) {
+        console.error('[Dual LLM] Fallback: Groq API call failed. Using original prompt.', error);
+        // Fallback is implicit, as finalUserInput remains the original prompt
+      }
+    }
+    
     const processedHistoryForPrompt = input.conversationHistory?.map(msg => ({
       role: msg.role,
       content: msg.content,
@@ -231,17 +274,9 @@ const mentorConversationFlow = ai.defineFlow(
     })).reverse(); 
     
     const flowInputForPrompt = {
-      userInput: input.userInput,
-      language: input.language,
+      ...input, // Pass other fields like language, sim state etc.
+      userInput: finalUserInput, // Use the potentially optimized prompt
       conversationHistory: processedHistoryForPrompt,
-      simulationMonth: input.simulationMonth,
-      financials: input.financials,
-      product: input.product,
-      resources: input.resources,
-      market: input.market,
-      userMetrics: input.userMetrics, // Pass user metrics to prompt
-      currentSimulationPage: input.currentSimulationPage,
-      isSimulationInitialized: input.isSimulationInitialized,
     };
     
     
@@ -304,6 +339,7 @@ const mentorConversationFlow = ai.defineFlow(
 
 
     const {output, usage} = await prompt(flowInputForPrompt, {toolInput: toolContexts});
+    console.log('[Dual LLM] Final Gemini Response:', output);
 
 
     if (!output || !output.response) {
