@@ -168,8 +168,9 @@ export async function promptStartup(input: PromptStartupInput): Promise<PromptSt
 
     // Process suggestedChallenges
     try {
-        const sanitizedStr = sanitizeJsonString(rawOutput.suggestedChallenges);
-        const parsedArray = JSON.parse(sanitizedStr);
+        // The suggestedChallenges field should already be a JSON array string.
+        // We just need to parse and re-stringify to ensure it's valid.
+        const parsedArray = JSON.parse(rawOutput.suggestedChallenges);
         finalSuggestedChallengesString = JSON.stringify(parsedArray);
     } catch (e) {
         const errorDetails = e instanceof Error ? e.message : String(e);
