@@ -87,11 +87,17 @@ export async function mentorConversation(input: MentorConversationInput): Promis
   return mentorConversationFlow(input);
 }
 
-const PromptInputSchemaWithHistory = MentorConversationInputSchema.extend({
-  conversationHistoryForPrompt: z.array(z.object({
+// Define a more specific type for the history being passed to the prompt
+const ProcessedHistoryMessageSchema = z.object({
     role: z.enum(['user', 'assistant', 'tool_response']),
     content: z.string(),
-  })).optional(),
+    isUser: z.boolean(),
+    isAssistant: z.boolean(),
+    isTool: z.boolean(),
+});
+
+const PromptInputSchemaWithHistory = MentorConversationInputSchema.extend({
+  conversationHistoryForPrompt: z.array(ProcessedHistoryMessageSchema).optional(),
 });
 
 
@@ -130,7 +136,7 @@ You interface with a team of specialized AI expert agents. Based on the user's q
 Current simulation context:
 - User's Language: {{#if language}}{{language}}{{else}}en-US (default){{/if}}
 - Simulation Month: {{simulationMonth}}
-- Is Initialized: {{isSimulationInitialized}}
+- Is Initialized: {{isInitialized}}
 - User is on page: {{currentSimulationPage}}
 - Financials (Currency: {{{financials.currencyCode}}}): Cash: {{{financials.currencySymbol}}}{{{financials.currencyCode}}}{{financials.cashOnHand}}, Burn: {{{financials.currencySymbol}}}{{financials.burnRate}}/mo
 - Product: '{{#if product.name}}{{product.name}}{{else}}Unnamed{{/if}}' (Stage: {{product.stage}})
@@ -138,7 +144,7 @@ Current simulation context:
 {{#if conversationHistoryForPrompt}}
 Conversation History:
 {{#each conversationHistoryForPrompt}}
-  {{#ifeq role 'user'}}Founder: {{/ifeq}}{{#ifeq role 'assistant'}}EVE: {{/ifeq}}{{#ifeq role 'tool_response'}}Tool: {{/ifeq}}{{{content}}}
+  {{#if isUser}}Founder: {{/if}}{{#if isAssistant}}EVE: {{/if}}{{#if isTool}}Tool: {{/if}}{{{content}}}
 {{/each}}
 {{/if}}
 
@@ -201,10 +207,18 @@ const mentorConversationFlow = ai.defineFlow(
       }
     }
     
+    // Process history to add boolean flags for the template
+    const processedHistory = input.conversationHistory?.map(message => ({
+      ...message,
+      isUser: message.role === 'user',
+      isAssistant: message.role === 'assistant',
+      isTool: message.role === 'tool_response',
+    }));
+
     const flowInputForPrompt = {
       ...input,
       userInput: finalUserInput,
-      conversationHistoryForPrompt: input.conversationHistory,
+      conversationHistoryForPrompt: processedHistory,
     };
     
     const {output} = await prompt(flowInputForPrompt, {
@@ -227,3 +241,5 @@ const mentorConversationFlow = ai.defineFlow(
     };
   }
 );
+
+    
