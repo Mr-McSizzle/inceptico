@@ -10,7 +10,6 @@
  * - PromptStartupOutput - The return type for the promptStartup function.
  */
 import {
-  FounderArchetypeEnum,
   type PromptStartupInput,
   type PromptStartupOutput,
   PromptStartupOutputSchema
@@ -23,20 +22,14 @@ const systemPrompt = `You are an expert startup simulator and business strategis
 You MUST output a single, valid, parsable JSON object, and NOTHING ELSE. Do not include any text before or after the JSON object.
 
 The JSON object must have two keys: "initialConditions" and "suggestedChallenges".
-The value for "initialConditions" MUST be a string containing a valid JSON object.
-The value for "suggestedChallenges" MUST be a string containing a valid JSON array of strings.
+- The value for "initialConditions" MUST be a string containing a valid JSON object.
+- The value for "suggestedChallenges" MUST be a JSON array of strings.
 
 Example for the string content of 'initialConditions':
 '{"companyName": "AI-Driven SaaS", "market": { "targetMarketDescription": "B2B Tech Companies", "estimatedSize": 50000 }, "resources": { "initialFunding": 100000, "coreTeam": [{"role": "Founder", "count": 1, "salary": 0}], "marketingSpend": 5000 }, "productService": { "name": "AI Analytics Suite", "initialDevelopmentStage": "mvp", "pricePerUser": 99 }, "financials": { "startingCash": 100000, "estimatedInitialMonthlyBurnRate": 15000, "currencyCode": "USD" }, "initialGoals": ["Achieve 100 paying customers"]}'
 
-Example for the string content of 'suggestedChallenges':
-'["Differentiating from established players", "Ensuring data privacy and compliance"]'
-
-Apply the following founder archetype influences subtly:
-- If 'innovator': Slightly lean towards higher initial R&D focus and unique product features.
-- If 'scaler': Prioritize operational efficiency, a clear market segment, and a realistic budget.
-- If 'community_builder': Lean towards lower initial marketing spend but suggest goals related to user engagement.
-- If 'blockchain_visionary': Create a concept native to Web3, possibly involving tokens or DAOs (e.g., "EthosProtocol DAO").`;
+Example for the array content of 'suggestedChallenges':
+["Differentiating from established players", "Ensuring data privacy and compliance"]`;
 
 
 const buildUserPrompt = (input: PromptStartupInput): string => {
@@ -125,17 +118,9 @@ export async function promptStartup(input: PromptStartupInput): Promise<PromptSt
         throw new Error(`The AI failed to generate valid startup parameters (error processing initialConditions: ${e instanceof Error ? e.message : String(e)}).`);
     }
 
-     try {
-        JSON.parse(validatedData.suggestedChallenges);
-    } catch (e) {
-        console.error("AI failed to generate valid JSON string for 'suggestedChallenges'.", e);
-        console.error("Problematic string:", validatedData.suggestedChallenges);
-        throw new Error(`The AI failed to generate valid startup parameters (error processing suggestedChallenges: ${e instanceof Error ? e.message : String(e)}).`);
-    }
-
     return {
         initialConditions: validatedData.initialConditions,
-        suggestedChallenges: validatedData.suggestedChallenges,
+        suggestedChallenges: JSON.stringify(validatedData.suggestedChallenges),
     };
 
   } catch (err) {

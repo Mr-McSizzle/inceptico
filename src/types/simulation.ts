@@ -753,6 +753,6 @@ export type PromptStartupInput = z.infer<typeof PromptStartupInputSchema>;
 
 export const PromptStartupOutputSchema = z.object({
   initialConditions: z.string().describe('A stringified JSON object containing all initial conditions for the simulation.'),
-  suggestedChallenges: z.string().describe('A stringified JSON array of potential early-stage challenges.'),
+  suggestedChallenges: z.array(z.string()).describe('A JSON array of strings for potential early-stage challenges.'),
 });
 export type PromptStartupOutput = z.infer<typeof PromptStartupOutputSchema>;
