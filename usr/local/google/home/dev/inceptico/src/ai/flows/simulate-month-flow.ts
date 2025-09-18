@@ -108,7 +108,7 @@ const simulateMonthGenkitFlow = ai.defineFlow(
         if (String(currentProductStageForAI).toLowerCase() === 'concept') {
             currentProductStageForAI = 'idea';
         } else {
-            console.warn(\`Invalid product stage "\${currentProductStageForAI}" detected before AI call in simulateMonthFlow. Defaulting to "idea".\`);
+            console.warn(`Invalid product stage "${currentProductStageForAI}" detected before AI call in simulateMonthFlow. Defaulting to "idea".`);
             currentProductStageForAI = 'idea';
         }
     }
@@ -129,14 +129,14 @@ const simulateMonthGenkitFlow = ai.defineFlow(
     }
 
     if (output.simulatedMonthNumber !== targetSimulatedMonth) {
-        console.warn(\`AI returned month \${output.simulatedMonthNumber}, expected \${targetSimulatedMonth}. Proceeding with AI's month.\`);
+        console.warn(`AI returned month ${output.simulatedMonthNumber}, expected ${targetSimulatedMonth}. Proceeding with AI's month.`);
     }
 
     // Make expenseBreakdown authoritative and ensure consistency
     if (output.expenseBreakdown) {
         const breakdownSum = output.expenseBreakdown.salaries + output.expenseBreakdown.marketing + output.expenseBreakdown.rnd + output.expenseBreakdown.operational;
         if (Math.abs(breakdownSum - output.calculatedExpenses) > 0.01) { // Allow for small floating point differences
-            console.warn(\`AI expenseBreakdown sum (\${breakdownSum}) does not match AI's calculatedExpenses (\${output.calculatedExpenses}). Overriding calculatedExpenses with breakdown sum.\`);
+            console.warn(`AI expenseBreakdown sum (${breakdownSum}) does not match AI's calculatedExpenses (${output.calculatedExpenses}). Overriding calculatedExpenses with breakdown sum.`);
         }
         output.calculatedExpenses = breakdownSum;
         output.profitOrLoss = output.calculatedRevenue - output.calculatedExpenses;
@@ -173,7 +173,7 @@ const simulateMonthGenkitFlow = ai.defineFlow(
             }
         });
          if (output.keyEventsGenerated.length !== 2) {
-            console.warn(\`AI returned \${output.keyEventsGenerated.length} events, expected 2. Padding/truncating if necessary.\`);
+            console.warn(`AI returned ${output.keyEventsGenerated.length} events, expected 2. Padding/truncating if necessary.`);
             // Basic padding/truncating - could be more sophisticated
             while(output.keyEventsGenerated.length < 2) {
                 output.keyEventsGenerated.push({description: "Placeholder event due to AI under-generation.", category: "System", impact: "Neutral"});
@@ -194,3 +194,5 @@ const simulateMonthGenkitFlow = ai.defineFlow(
     return output;
   }
 );
+
+    
