@@ -136,7 +136,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     );
   }
 
-  if (!isAuthenticated && pathname.startsWith('/app') && !pathname.startsWith('/app/login') && !pathname.startsWith('/app/signup')) { 
+  if (!isAuthenticated && pathname.startsWith('/app') && !pathname.startsWith('/login') && !pathname.startsWith('/app/signup')) { 
       return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground">
             <IncepticoLogo className="h-20 w-20 text-primary animate-subtle-pulse mb-4"/>
@@ -216,8 +216,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                 </SheetContent>
               </Sheet>
             </header>
-            <SidebarInset className="p-4 sm:px-6 sm:py-0">
-              <main className="flex-1 overflow-auto py-6">
+            <SidebarInset className="p-4 sm:px-6 sm:py-0 flex-1 flex flex-col">
+              <main className="flex-1 flex flex-col">
                 {children}
               </main>
             </SidebarInset>

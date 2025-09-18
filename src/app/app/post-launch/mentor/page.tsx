@@ -7,8 +7,8 @@ import { Phone } from 'lucide-react';
 
 export default function PostLaunchMentorPage() {
   return (
-    <div className="flex flex-col h-full max-h-[calc(100vh-100px)]">
-      <header className="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div className="flex flex-col h-full">
+      <header className="mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-headline text-foreground">Post-Launch Hive Mind</h1>
           <p className="text-muted-foreground">
@@ -22,7 +22,7 @@ export default function PostLaunchMentorPage() {
           </Link>
         </Button>
       </header>
-      <div className="flex-grow">
+      <div className="flex-grow min-h-0">
         <ChatInterface />
       </div>
     </div>

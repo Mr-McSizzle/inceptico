@@ -254,8 +254,8 @@ export function ChatInterface({ focusedAgentId, focusedAgentName, isEmbedded = f
     <TooltipProvider>
     <div
       className={cn(
-        "flex flex-col bg-card shadow-lg rounded-lg border",
-        isEmbedded ? "h-full" : "h-[calc(100vh-15rem)] max-h-[800px]"
+        "flex flex-col bg-card shadow-lg rounded-lg border h-full",
+        isEmbedded ? "" : "min-h-[400px]" // Ensure a minimum height when not embedded
         )}
       data-guidance-target="chat-container"
     >
