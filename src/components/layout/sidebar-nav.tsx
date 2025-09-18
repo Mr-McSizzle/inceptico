@@ -35,14 +35,9 @@ import { Button } from "@/components/ui/button";
 
 const preLaunchNavItems = [
   { href: "/app/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/app/setup", label: "Setup Simulation", icon: Rocket },
-  { href: "/app/agents", label: "AI Agent Team", icon: Users }, 
-  { href: "/app/mentor", label: "Hive Mind Assistant", icon: MessageSquare },
-  { href: "/app/simulation", label: "Decision Controls", icon: Box },
-  { href: "/app/strategy", label: "Strategy & Analytics", icon: Lightbulb },
+  { href: "/app/setup", label: "Setup Sim", icon: Rocket },
+  { href: "/app/mentor", label: "EVE's Hive Mind", icon: MessageSquare },
   { href: "/app/lab", label: "Innovation Lab", icon: Beaker },
-  { href: "/app/gamification", label: "Milestones & Score", icon: Trophy },
-  { href: "/app/todo", label: "Todo List", icon: ListTodo }, 
 ];
 
 const postLaunchNavItems = [
