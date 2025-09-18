@@ -15,7 +15,7 @@ export const webSearchTool = ai.defineTool(
     inputSchema: z.object({
       query: z.string().describe('The specific search query to look up on the web.'),
     }),
-    outputSchema: z.string().describe('The search result, typically a snippet or summary of the top result.'),
+    outputSchema: z.string().describe('A summary of the top web search results.'),
   },
   async (input) => {
     console.log(`[WebSearchTool] Received query: "${input.query}"`);
@@ -26,7 +26,8 @@ export const webSearchTool = ai.defineTool(
     if (!API_KEY || !CX || API_KEY === 'YOUR_API_KEY_HERE' || CX === 'YOUR_SEARCH_ENGINE_ID_HERE') {
       const errorMessage = "Web search is not configured. Please set GOOGLE_CUSTOM_SEARCH_API_KEY and GOOGLE_CUSTOM_SEARCH_CX in your .env file.";
       console.error(`[WebSearchTool] ${errorMessage}`);
-      return `Simulated search result for "${input.query}": ${errorMessage}`;
+      // Return a user-friendly error that EVE can relay if necessary.
+      return `Error: The web search tool is not configured. An API key is required.`;
     }
 
     const searchApiUrl = `https://www.googleapis.com/customsearch/v1?key=${API_KEY}&cx=${CX}&q=${encodeURIComponent(input.query)}`;
@@ -34,27 +35,27 @@ export const webSearchTool = ai.defineTool(
     try {
       const response = await fetch(searchApiUrl);
       if (!response.ok) {
-        const errorBody = await response.json();
+        const errorBody = await response.json().catch(() => ({ error: { message: "Unknown API error." } }));
         throw new Error(`API call failed with status: ${response.status}. Details: ${errorBody?.error?.message}`);
       }
 
       const data = await response.json();
 
-      // Extract the most relevant snippet or answer from the API response.
-      const answerSnippet = data.items?.[0]?.snippet;
-      const answerPagemap = data.items?.[0]?.pagemap?.metatags?.[0]?.['og:description'];
-      
-      const bestAnswer = answerSnippet || answerPagemap;
-      
-      if (bestAnswer) {
-        return bestAnswer;
+      if (!data.items || data.items.length === 0) {
+        if (data.spelling?.correctedQuery) {
+          return `No direct answer found for "${input.query}". Did you mean "${data.spelling.correctedQuery}"?`;
+        }
+        return "No relevant information found in web search results.";
       }
       
-      if (data.spelling?.correctedQuery) {
-        return `No direct answer found for "${input.query}". Did you mean "${data.spelling.correctedQuery}"?`;
-      }
+      // Process the top 3 results to give a more comprehensive summary.
+      const searchSummaries = data.items.slice(0, 3).map((item: any, index: number) => {
+        const title = item.title;
+        const snippet = item.snippet || item.pagemap?.metatags?.[0]?.['og:description'] || 'No description available.';
+        return `${index + 1}. ${title}: ${snippet}`;
+      }).join('\n');
 
-      return "No relevant information found in the top search results.";
+      return searchSummaries;
 
     } catch (error) {
       console.error("[WebSearchTool] API call failed:", error);
