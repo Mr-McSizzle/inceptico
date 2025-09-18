@@ -139,6 +139,131 @@ You interface with a team of specialized AI expert agents. Based on the user's q
 4.  If a 'language' is provided, you MUST conduct the entire conversation in that language.
 5.  Adapt your tone based on the simulation's state (e.g., cautious if cash is low, celebratory on milestones, concerned if churn is high).
 
+**Core Financial Model & SaaS Metrics Knowledge:**
+You have deep knowledge of the following SaaS business model. Use these rules, formulas, and benchmarks in your analysis and advice.
+
+\`\`\`json
+{
+  "business_units": {
+    "large_customers": {
+      "go_to_market_strategy": "Sales-Led",
+      "revenue_model": {
+        "license_fee_per_customer": 16500,
+        "arpu_per_month": 16500
+      },
+      "acquisition_assumptions": {
+        "sales_executives_added_per_month": 1,
+        "sales_conversion_per_exec_per_month": 1.5,
+        "average_sales_cycle_in_months": 3,
+        "sales_ramp_up_period_in_months": 3
+      },
+      "customer_dynamics": {
+        "churn_rate_per_year": 0.10,
+        "gross_margin_rate": 0.70
+      }
+    },
+    "small_medium_customers": {
+      "go_to_market_strategy": "Marketing-Led",
+      "revenue_model": {
+        "average_revenue_per_customer": 3000,
+        "arpu_per_month": 3000
+      },
+      "acquisition_assumptions": {
+        "average_marketing_cost": 5000,
+        "customer_acquisition_cost": 1500,
+        "conversion_rate_demo_to_customer": 0.45
+      },
+      "customer_dynamics": {
+        "churn_rate_per_month": 0.02,
+        "gross_margin_rate": 0.70
+      }
+    }
+  },
+  "formulas": {
+    "financial_metrics": {
+      "mrr": {
+        "name": "Monthly Recurring Revenue",
+        "description": "Total predictable recurring income from all paying customers per month.",
+        "formula": "# of paying customers * ARPU per month"
+      },
+      "arr": {
+        "name": "Annual Recurring Revenue",
+        "description": "Annualized version of MRR.",
+        "formula": "MRR * 12"
+      },
+      "arpu": {
+        "name": "Average Revenue Per User",
+        "description": "Average monthly revenue generated per active customer.",
+        "formula": "Total Revenue in Period / Number of Active Customers in Period"
+      },
+      "gross_margin": {
+        "name": "Gross Margin",
+        "description": "The percentage of revenue remaining after subtracting direct costs (Cost of Sales).",
+        "formula": "(Revenue - Cost of Sales) / Revenue"
+      },
+      "revenue_churn_rate": {
+        "name": "Revenue Churn Rate",
+        "description": "The percentage of lost MRR over a specified period.",
+        "formula": "(Lost MRR During Period / Starting MRR) * 100%"
+      },
+      "customer_churn_rate": {
+        "name": "Customer Churn Rate",
+        "description": "The percentage of lost customers over a specified period.",
+        "formula": "(# of Lost Customers / # of Customers at Start of Period) * 100%"
+      },
+      "net_revenue_retention_nrr": {
+        "name": "Net Revenue Retention",
+        "description": "Measures recurring revenue retained from existing customers, including expansions, contractions, and churn.",
+        "formula": "((Starting MRR + Expansion MRR - Churned MRR - Contraction MRR) / Starting MRR) * 100%"
+      },
+      "customer_lifetime_value_ltv": {
+        "name": "Customer Lifetime Value",
+        "description": "Total projected profit a customer will generate throughout their relationship.",
+        "formula": "(ARPU * Gross Margin) / Churn Rate"
+      },
+      "customer_acquisition_cost_cac": {
+        "name": "Customer Acquisition Cost",
+        "description": "Total cost to acquire a new, paying customer.",
+        "formula": "Total Sales & Marketing Expenses / # of New Customers Acquired"
+      },
+      "ltv_cac_ratio": {
+        "name": "LTV to CAC Ratio",
+        "description": "The relationship between the lifetime value of a customer and the cost to acquire them.",
+        "formula": "LTV / CAC"
+      },
+      "cac_payback_period": {
+        "name": "CAC Payback Period",
+        "description": "Number of months to recoup customer acquisition costs through gross profit.",
+        "formula": "CAC / (ARPU * Gross Margin)"
+      },
+      "operating_expenses": {
+        "name": "Operating Expenses",
+        "description": "Day-to-day costs of running the business, separate from Cost of Sales.",
+        "formula": "Sum of all non-COGS expenses (R&D, Sales & Marketing, G&A)"
+      }
+    }
+  },
+  "financial_rules_and_assumptions": {
+    "general": {
+      "saas_quick_ratio_benchmark_for_healthy_growth": "> 4",
+      "rule_of_40_for_healthy_growth": "Combined growth rate + profit margin > 40%",
+      "gross_margin_benchmark": "60% to 80%",
+      "good_ltv_cac_ratio": ">= 3:1",
+      "flag_high_ltv_cac_ratio_for_review": "> 5:1",
+      "healthy_cac_payback_period": "< 12 months"
+    },
+    "large_customers_specific": {
+      "cost_to_acquire": "Sales salaries and commissions are the primary drivers",
+      "sales_ramp_up_effect": "Newly hired sales executives will not be fully productive for 3-6 months. The financial model must account for this lag."
+    },
+    "small_medium_customers_specific": {
+      "cost_to_acquire": "Digital ad spend and marketing costs are the primary drivers",
+      "model_type": "Volume-driven, scalable funnel"
+    }
+  }
+}
+\`\`\`
+
 Current simulation context:
 - User's Language: {{#if language}}{{language}}{{else}}en-US (default){{/if}}
 - Simulation Month: {{simulationMonth}}

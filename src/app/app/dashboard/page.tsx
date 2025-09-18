@@ -6,7 +6,7 @@ import { PerformanceChart } from "@/components/dashboard/performance-chart";
 import { ExpenseBreakdownChart } from "@/components/dashboard/expense-breakdown-chart";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { DollarSign, Users, TrendingUp as TrendingUpIcon, BarChartBig, ChevronsRight, RefreshCcw, AlertTriangle, PiggyBank, Activity, Percent, Bot, ListChecks, Target, BrainCircuit, X, Briefcase } from "lucide-react";
+import { DollarSign, Users, TrendingUp as TrendingUpIcon, BarChartBig, ChevronsRight, RefreshCcw, AlertTriangle, PiggyBank, Activity, Percent, Bot, ListChecks, Target, BrainCircuit, X, Briefcase, FileText } from "lucide-react";
 import { useSimulationStore } from "@/store/simulationStore";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -18,6 +18,7 @@ import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ChallengeHex } from "@/components/dashboard/ChallengeHex";
 import { StageUnlockAnimationOverlay } from "@/components/dashboard/StageUnlockAnimationOverlay";
+import { FormulasReference } from "@/components/dashboard/FormulasReference";
 
 const challenges = [
   {
@@ -257,6 +258,9 @@ export default function DashboardPage() {
                 <PerformanceChart title={`Customer Acquisition Cost (CAC) (${currencySymbol})`} description="Average cost to acquire one new user." dataKey="value" data={historicalCAC} />
                 <PerformanceChart title="Monthly Churn Rate (%)" description="Percentage of users lost each month." dataKey="value" data={historicalChurnRate} />
                 <PerformanceChart title="Product Development Progress (%)" description="Progress towards the next product stage." dataKey="value" data={historicalProductProgress} />
+                <div className="md:col-span-2">
+                  <FormulasReference />
+                </div>
             </div>
 
             <div className="lg:col-span-1 space-y-6">
@@ -326,3 +330,5 @@ export default function DashboardPage() {
     </TooltipProvider>
   );
 }
+
+    
