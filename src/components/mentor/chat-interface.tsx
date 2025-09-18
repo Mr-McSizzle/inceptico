@@ -255,11 +255,11 @@ export function ChatInterface({ focusedAgentId, focusedAgentName, isEmbedded = f
     <div
       className={cn(
         "flex flex-col bg-card shadow-lg rounded-lg",
-        isEmbedded ? "h-full" : "h-[calc(100vh-15rem)] max-h-[800px]"
+        isEmbedded ? "flex-grow h-full" : "h-[calc(100vh-15rem)] max-h-[800px]"
         )}
       data-guidance-target="chat-container"
     >
-      <ScrollArea className="flex-grow p-4">
+      <ScrollArea className="flex-1 p-4">
         <div className="space-y-2">
           {displayedMessages.map((msg) => (
             <ChatMessage key={msg.id} message={msg} />
@@ -284,7 +284,7 @@ export function ChatInterface({ focusedAgentId, focusedAgentName, isEmbedded = f
         </div>
       </ScrollArea>
       <div className="border-t border-border p-4 flex flex-col gap-2 bg-background rounded-b-lg">
-        <div className="flex items-center gap-2">
+        <form onSubmit={handleSubmit} className="flex items-center gap-2">
             <Input
               type="text"
               value={userInput}
@@ -293,11 +293,6 @@ export function ChatInterface({ focusedAgentId, focusedAgentName, isEmbedded = f
               className="flex-grow"
               disabled={isLoading}
               aria-label="User input for EVE AI assistant"
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  handleSubmit(e);
-                }
-              }}
             />
             {isSpeechRecognitionSupported && (
               <Button
@@ -315,7 +310,7 @@ export function ChatInterface({ focusedAgentId, focusedAgentName, isEmbedded = f
                 )}
               </Button>
             )}
-            <Button type="submit" onClick={handleSubmit} disabled={isLoading || !userInput.trim()} className="bg-accent hover:bg-accent/90 text-accent-foreground">
+            <Button type="submit" disabled={isLoading || !userInput.trim()} className="bg-accent hover:bg-accent/90 text-accent-foreground">
               {isLoading ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
               ) : (
@@ -323,7 +318,7 @@ export function ChatInterface({ focusedAgentId, focusedAgentName, isEmbedded = f
               )}
               <span className="sr-only">Send message</span>
             </Button>
-        </div>
+        </form>
         <div className="flex items-center space-x-2">
           <Checkbox id="groq-optimizer" checked={useOptimizer} onCheckedChange={(checked) => setUseOptimizer(checked as boolean)} disabled={isLoading} />
             <Tooltip>
