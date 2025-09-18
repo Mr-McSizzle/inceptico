@@ -756,3 +756,26 @@ export const PromptStartupOutputSchema = z.object({
   suggestedChallenges: z.array(z.string()).describe('A JSON array of strings for potential early-stage challenges.'),
 });
 export type PromptStartupOutput = z.infer<typeof PromptStartupOutputSchema>;
+
+// Strategy Recommendations Flow
+export const StrategyRecommendationsInputSchema = z.object({
+  simulationData: z
+    .string()
+    .describe(
+      'The current state of the "digital twin" simulation data in JSON format. This includes key performance indicators, financial metrics, market conditions, and operational status.'
+    ),
+});
+export type StrategyRecommendationsInput = z.infer<
+  typeof StrategyRecommendationsInputSchema
+>;
+
+export const StrategyRecommendationsOutputSchema = z.object({
+  recommendations: z
+    .string()
+    .describe('Actionable strategic recommendations, including predictive insights, risk assessments, and opportunities for improvement based on the digital twin\'s simulation data. Formatted as a concise, actionable report.'),
+});
+export type StrategyRecommendationsOutput = z.infer<
+  typeof StrategyRecommendationsOutputSchema
+>;
+
+    
