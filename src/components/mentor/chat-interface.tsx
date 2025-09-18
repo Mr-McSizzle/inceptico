@@ -254,35 +254,37 @@ export function ChatInterface({ focusedAgentId, focusedAgentName, isEmbedded = f
     <TooltipProvider>
     <div
       className={cn(
-        "flex flex-col bg-card shadow-lg rounded-lg",
-        isEmbedded ? "flex-grow h-full" : "h-[calc(100vh-15rem)] max-h-[800px]"
+        "flex flex-col bg-card shadow-lg rounded-lg border",
+        isEmbedded ? "h-full" : "h-[calc(100vh-15rem)] max-h-[800px]"
         )}
       data-guidance-target="chat-container"
     >
-      <ScrollArea className="flex-1 p-4">
-        <div className="space-y-2">
-          {displayedMessages.map((msg) => (
-            <ChatMessage key={msg.id} message={msg} />
-          ))}
-          {isLoading && (
-             <div className="flex items-start gap-3 my-4 justify-start">
-                <Avatar className="h-8 w-8 border border-border">
-                    <AvatarImage src="/new-assets/custom_eve_avatar.png" alt="EVE AI Avatar" data-ai-hint="bee queen" />
-                    <AvatarFallback>
-                        <Brain className="h-5 w-5 text-muted-foreground" />
-                    </AvatarFallback>
-                </Avatar>
-                <div className="max-w-[70%] rounded-lg p-3 shadow-md bg-card text-card-foreground">
-                    <div className="flex items-center gap-2">
-                        <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                        <span className="text-sm text-muted-foreground">{useOptimizer ? "Optimizing & processing..." : "EVE is processing..."}</span>
-                    </div>
-                </div>
-            </div>
-          )}
-          <div ref={messagesEndRef} />
-        </div>
-      </ScrollArea>
+      <div className="flex-grow overflow-hidden">
+        <ScrollArea className="h-full p-4">
+          <div className="space-y-2">
+            {displayedMessages.map((msg) => (
+              <ChatMessage key={msg.id} message={msg} />
+            ))}
+            {isLoading && (
+              <div className="flex items-start gap-3 my-4 justify-start">
+                  <Avatar className="h-8 w-8 border border-border">
+                      <AvatarImage src="/new-assets/custom_eve_avatar.png" alt="EVE AI Avatar" data-ai-hint="bee queen" />
+                      <AvatarFallback>
+                          <Brain className="h-5 w-5 text-muted-foreground" />
+                      </AvatarFallback>
+                  </Avatar>
+                  <div className="max-w-[70%] rounded-lg p-3 shadow-md bg-card text-card-foreground">
+                      <div className="flex items-center gap-2">
+                          <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                          <span className="text-sm text-muted-foreground">{useOptimizer ? "Optimizing & processing..." : "EVE is processing..."}</span>
+                      </div>
+                  </div>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+        </ScrollArea>
+      </div>
       <div className="border-t border-border p-4 flex flex-col gap-2 bg-background rounded-b-lg">
         <form onSubmit={handleSubmit} className="flex items-center gap-2">
             <Input
