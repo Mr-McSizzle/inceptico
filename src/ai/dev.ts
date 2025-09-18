@@ -16,11 +16,11 @@ import '@/ai/flows/simulate-feature-launch-flow.ts'; // New flow for feature lau
 import '@/ai/flows/text-to-speech-flow.ts'; // New flow for Text-to-Speech
 import '@/ai/flows/analyze-silly-idea-flow.ts'; // New flow for Absurdity Arena
 
-// All individual agent tools are rolled into mentor-conversation.ts
-// EVE now handles all agent interactions.
-
+// EVE now handles all agent interactions and has access to all tools.
 // Decision Control Tools
 import '@/ai/tools/set-marketing-budget-tool.ts';
 import '@/ai/tools/set-rnd-budget-tool.ts';
 import '@/ai/tools/set-product-price-tool.ts';
+// Real-time Data Tools
+import '@/ai/tools/web-search-tool.ts';
     

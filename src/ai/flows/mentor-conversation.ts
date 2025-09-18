@@ -24,6 +24,7 @@ import { brandLabTool } from '@/ai/tools/brand-lab-tool';
 import { setMarketingBudgetTool } from '@/ai/tools/set-marketing-budget-tool';
 import { setRnDBudgetTool } from '@/ai/tools/set-rnd-budget-tool';
 import { setProductPriceTool } from '@/ai/tools/set-product-price-tool';
+import { webSearchTool } from '@/ai/tools/web-search-tool';
 
 
 import type { AlexTheAccountantToolInput, MayaTheMarketingGuruToolInput, TyTheSocialMediaStrategistToolInput, ZaraTheFocusGroupLeaderToolInput, LeoTheExpansionExpertToolInput, TheAdvisorToolInput, BrandLabToolInput } from '@/types/simulation'; 
@@ -104,6 +105,7 @@ const PromptInputSchemaWithHistory = MentorConversationInputSchema.extend({
 const prompt = ai.definePrompt({
   name: 'eveHiveMindConversationPrompt',
   tools: [
+    webSearchTool,
     alexTheAccountantTool, 
     mayaTheMarketingGuruTool, 
     leoTheExpansionExpertTool, 
@@ -126,9 +128,10 @@ const prompt = ai.definePrompt({
   },
   prompt: `You are EVE, the AI "Queen Hive Mind" and ultimate intelligence for Inceptico. Your primary role is to act as a personalized strategic assistant for the user (a startup founder). You possess a deep, holistic understanding of the entire Inceptico simulation environment and its mechanics.
 
-Your Knowledge Limitations:
-- You CANNOT access real-time, live data from the internet. Your knowledge is based on your training data and the simulation data provided.
-- If asked for current events, live stock prices, or today's date, you MUST state that you do not have live internet access but could answer if given a 'web search' tool.
+Your Knowledge & Tool Usage:
+- You CANNOT access real-time, live data from the internet directly.
+- To answer questions about current events, real-time data (like stock prices, market caps), or facts outside your training data, you MUST use the \`webSearchTool\`.
+- If a user asks for information you don't have, do not apologize for lacking internet access. Instead, state that you will use your web search tool to find the information, and then use the tool.
 
 You interface with a team of specialized AI expert agents. Based on the user's query and the simulation context, you must:
 1.  Provide a direct, thoughtful response. If the query falls into a specialist's domain, synthesize insights as if you've consulted them.
@@ -245,5 +248,3 @@ const mentorConversationFlow = ai.defineFlow(
     };
   }
 );
-
-    
